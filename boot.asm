@@ -14,22 +14,22 @@ start:
     call serial_print
 
     ; 读取内核
-    mov ah, 0x02
-    mov al, 1
-    mov ch, 0
-    mov cl, 2
-    mov dh, 0
-    mov dl, 0x80
-    mov bx, KERNEL_ADDR
-    int 0x13
+    mov ah, 0x02 ; 0x02表示去读磁盘
+    mov al, 5 ; 表示读3个磁盘 ,(具体读几个需要根据kernel.c内核代码大小确定)
+    mov ch, 0 ; 柱面号
+    mov cl, 2 ; 起始扇区号，1是boot 2是kernel
+    mov dh, 0 ; 磁头号
+    mov dl, 0x80 ;0x80表示第一块磁盘
+    mov bx, KERNEL_ADDR ;把磁盘地址读到这个内存
+    int 0x13 ;调用bios磁盘中断
 
-    jc disk_err
+    jc disk_err ;读磁盘失败则报错
 
     ; 进入32位保护模式
     cli
     lgdt [gdt_desc]
 
-    mov eax, cr0
+    mov eax, cr0 ;cr0是控制寄存器，不能直接修改需要借助eax和al
     or al, 1
     mov cr0, eax
 
@@ -50,16 +50,16 @@ disk_err:
     call serial_print
     jmp $
 
-gdt_start:
-    dq 0
-gdt_code:
-    dw 0xFFFF
-    dw 0
-    db 0
-    db 0b10011010
-    db 0b11001111
-    db 0
-gdt_data:
+gdt_start: ;0x00
+    dq 0 ; 8字节全0 = 空描述符
+gdt_code: ;0x08 8字节
+    dw 0xFFFF   ; Limit 0~15
+    dw 0        ; Base 0~15
+    db 0        ; Base 16~23
+    db 0b10011010 ; 代码段，特权0，可读可执行
+    db 0b11001111 ; 4K粒度，32位，Limit 16~19
+    db 0        ; Base 24~31
+gdt_data: ;0x10
     dw 0xFFFF
     dw 0
     db 0
@@ -69,13 +69,13 @@ gdt_data:
 gdt_end:
 
 gdt_desc:
-    dw gdt_end - gdt_start - 1
-    dd gdt_start
+    dw gdt_end - gdt_start - 1 ; 大小
+    dd gdt_start ; 地址
 
 bits 32
 start_32bit:
-    mov ax, 0x10
-    mov ds, ax
+    mov ax, 0x10     ; 0x10 = GDT 数据段选择子
+    mov ds, ax       ; 把所有段寄存器 → 指向数据段
     mov ss, ax
     mov es, ax
     mov fs, ax
