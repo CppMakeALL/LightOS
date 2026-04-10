@@ -24,15 +24,16 @@ add_custom_target(kernel_entry
 # --------------------------
 add_custom_target(kernel_c
     COMMAND gcc -m32 -ffreestanding -c ${CMAKE_SOURCE_DIR}/kernel/kernel.c -o kernel.o -fno-pie
+    COMMAND gcc -m32 -ffreestanding -c ${CMAKE_SOURCE_DIR}/kernel/memory.c -o memory.o -fno-pie
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    BYPRODUCTS kernel.o
+    BYPRODUCTS kernel.o memory.o
 )
 
 # --------------------------
 # 4. 链接 → kernel.bin
 # --------------------------
 add_custom_target(kernel_bin
-    COMMAND ld -m elf_i386 -N -Ttext 0x1000 --entry _start entry.o kernel.o -o kernel.bin --oformat binary
+    COMMAND ld -m elf_i386 -N -Ttext 0x1000 --entry _start entry.o kernel.o memory.o -o kernel.bin --oformat binary
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     DEPENDS kernel_entry kernel_c
     BYPRODUCTS kernel.bin

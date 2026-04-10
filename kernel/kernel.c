@@ -1,5 +1,6 @@
 // 串口端口号
 #define SERIAL_PORT 0x3F8
+#include "memory.h"
 
 static inline unsigned char inb(unsigned short port) {
     unsigned char ret;
@@ -21,6 +22,36 @@ void print(const char *str) {
         putchar(*str);
         str++;
     }
+}
+
+
+void print_dec(unsigned int num) {
+    char buf[16];
+    int i = 0;
+    if (num == 0) {
+        putchar('0');
+        return;
+    }
+    while (num > 0 && i < 15) {
+        buf[i++] = num % 10 + '0';
+        num /= 10;
+    }
+    while (i > 0) {
+        putchar(buf[--i]);
+    }
+}
+
+void print_hex(unsigned int n) {
+    char buf[11];
+    int i = 0;
+    buf[i++] = '0';
+    buf[i++] = 'x';
+    for (int j = 7; j >= 0; j--) {
+        int d = (n >> (j * 4)) & 0xF;
+        buf[i++] = d < 10 ? '0' + d : 'A' + d - 10;
+    }
+    buf[i] = 0;
+    print(buf);
 }
 
 int strcmp(const char *a, const char *b) {
@@ -111,14 +142,28 @@ void execute_command(const char *cmd) {
     else if (strcmp(cmd, "ver") == 0) {
         cmd_ver();
     }
-    else if (strcmp(cmd, "mem") == 0) {
-        cmd_mem();
-    }
     else if (strcmp(cmd, "ls") == 0) {
         cmd_ls();
     }
     else if (strstartswith(cmd, "echo ")) {
         cmd_echo(cmd + 5);
+    }
+    else if (strcmp(cmd, "mem") == 0) {
+        mem_info();
+    }
+    else if (strcmp(cmd, "malloc") == 0) {
+        void* p = malloc(1024);
+        if (p) {
+            print("Allocated: ");
+            print_hex((unsigned int)p);
+            print("\r\n");
+        } else {
+            print("Alloc failed!\r\n");
+        }
+    }
+    else if (strcmp(cmd, "free") == 0) {
+        // 简单演示：你可以改成传入地址
+        print("Use free <addr>\r\n");
     }
     else if (*cmd) {
         print("Unknown command: ");
@@ -128,6 +173,7 @@ void execute_command(const char *cmd) {
 }
 
 void kernel_main() {
+    memory_init();
     char cmd[128];
 
     cmd_clear();

@@ -15,7 +15,7 @@ start:
 
     ; 读取内核
     mov ah, 0x02 ; 0x02表示去读磁盘
-    mov al, 5 ; 表示读3个磁盘 ,(具体读几个需要根据kernel.c内核代码大小确定)
+    mov al, 8 ; 表示读3个磁盘 ,(具体读几个需要根据kernel.c内核代码大小确定)
     mov ch, 0 ; 柱面号
     mov cl, 2 ; 起始扇区号，1是boot 2是kernel
     mov dh, 0 ; 磁头号
