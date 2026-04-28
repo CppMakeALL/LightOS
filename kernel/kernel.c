@@ -2,6 +2,7 @@
 #define SERIAL_PORT 0x3F8
 #include "memory.h"
 #include "disk.h"
+#include "interrupt.h"
 
 static inline unsigned char inb(unsigned short port) {
     unsigned char ret;
@@ -259,6 +260,7 @@ void execute_command(const char *cmd) {
 
 void kernel_main() {
     memory_init();
+    interrupt_init();
     
     disk_init();
     fs_format();
