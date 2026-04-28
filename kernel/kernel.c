@@ -1,6 +1,7 @@
 // 串口端口号
 #define SERIAL_PORT 0x3F8
 #include "memory.h"
+#include "disk.h"
 
 static inline unsigned char inb(unsigned short port) {
     unsigned char ret;
@@ -57,6 +58,12 @@ void print_hex(unsigned int n) {
 int strcmp(const char *a, const char *b) {
     while (*a && *b && *a == *b) { a++; b++; }
     return *a - *b;
+}
+
+int strlen(const char *str) {
+    int len = 0;
+    while (*str++) len++;
+    return len;
 }
 
 int strstartswith(const char *str, const char *pre) {
@@ -121,6 +128,7 @@ void cmd_mem() {
 void cmd_ls() {
     print("Built-in Commands:\r\n");
     print(" help   hello   reboot   clear   echo   ver   mem   ls\r\n");
+    print(" format   mount   create   delete   read   write   fsinfo\r\n");
 }
 
 void execute_command(const char *cmd) {
@@ -130,6 +138,7 @@ void execute_command(const char *cmd) {
     else if (strcmp(cmd, "help") == 0) {
         print("Available commands:\r\n");
         print(" hello   help   reboot   clear   echo   ver   mem   ls\r\n");
+        print(" format   mount   create   delete   read   write   fsinfo\r\n");
     }
     else if (strcmp(cmd, "reboot") == 0) {
         print("Rebooting...\r\n");
@@ -162,8 +171,84 @@ void execute_command(const char *cmd) {
         }
     }
     else if (strcmp(cmd, "free") == 0) {
-        // 简单演示：你可以改成传入地址
         print("Use free <addr>\r\n");
+    }
+    else if (strcmp(cmd, "format") == 0) {
+        if (fs_format() == 0) {
+            print("Filesystem formatted successfully!\r\n");
+        } else {
+            print("Format failed!\r\n");
+        }
+    }
+    else if (strcmp(cmd, "mount") == 0) {
+        if (fs_mount() == 0) {
+            print("Filesystem mounted successfully!\r\n");
+        } else {
+            print("Mount failed! Try 'format' first.\r\n");
+        }
+    }
+    else if (strstartswith(cmd, "create ")) {
+        if (fs_create(cmd + 7) == 0) {
+            print("File created successfully!\r\n");
+        } else {
+            print("Create failed!\r\n");
+        }
+    }
+    else if (strstartswith(cmd, "delete ")) {
+        if (fs_delete(cmd + 7) == 0) {
+            print("File deleted successfully!\r\n");
+        } else {
+            print("Delete failed!\r\n");
+        }
+    }
+    else if (strstartswith(cmd, "read ")) {
+        unsigned char buffer[256];
+        const char* filename = cmd + 5;
+        int result = fs_read(filename, 0, buffer, 256);
+        if (result > 0) {
+            print("Content: ");
+            for (int i = 0; i < result; i++) {
+                putchar(buffer[i]);
+            }
+            print("\r\n");
+        } else {
+            print("Read failed!\r\n");
+        }
+    }
+    else if (strstartswith(cmd, "write ")) {
+        char filename[64];
+        char data[128];
+        const char* ptr = cmd + 6;
+        int i = 0;
+        
+        while (*ptr && *ptr != ' ' && i < 63) {
+            filename[i++] = *ptr++;
+        }
+        filename[i] = 0;
+        
+        while (*ptr == ' ') ptr++;
+        
+        i = 0;
+        while (*ptr && i < 127) {
+            data[i++] = *ptr++;
+        }
+        data[i] = 0;
+        
+        if (filename[0] != 0 && data[0] != 0) {
+            int result = fs_write(filename, 0, (const unsigned char*)data, strlen(data));
+            if (result > 0) {
+                print("Written ");
+                print_dec(result);
+                print(" bytes.\r\n");
+            } else {
+                print("Write failed!\r\n");
+            }
+        } else {
+            print("Usage: write <filename> <data>\r\n");
+        }
+    }
+    else if (strcmp(cmd, "fsinfo") == 0) {
+        fs_info();
     }
     else if (*cmd) {
         print("Unknown command: ");
@@ -174,6 +259,12 @@ void execute_command(const char *cmd) {
 
 void kernel_main() {
     memory_init();
+    
+    disk_init();
+    fs_format();
+    fs_sync();
+    fs_mount();
+
     char cmd[128];
 
     cmd_clear();
