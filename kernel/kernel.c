@@ -3,6 +3,7 @@
 #include "memory.h"
 #include "disk.h"
 #include "interrupt.h"
+#include "process.h"
 
 static inline unsigned char inb(unsigned short port) {
     unsigned char ret;
@@ -130,6 +131,7 @@ void cmd_ls() {
     print("Built-in Commands:\r\n");
     print(" help   hello   reboot   clear   echo   ver   mem   ls\r\n");
     print(" format   mount   create   delete   read   write   fsinfo\r\n");
+    print(" fork   ps\r\n");
 }
 
 void execute_command(const char *cmd) {
@@ -140,6 +142,7 @@ void execute_command(const char *cmd) {
         print("Available commands:\r\n");
         print(" hello   help   reboot   clear   echo   ver   mem   ls\r\n");
         print(" format   mount   create   delete   read   write   fsinfo\r\n");
+        print(" fork   ps\r\n");
     }
     else if (strcmp(cmd, "reboot") == 0) {
         print("Rebooting...\r\n");
@@ -251,6 +254,19 @@ void execute_command(const char *cmd) {
     else if (strcmp(cmd, "fsinfo") == 0) {
         fs_info();
     }
+    else if (strcmp(cmd, "fork") == 0) {
+        int pid = fork();
+        if (pid >= 0) {
+            print("fork: ");
+            print_dec(pid);
+            print("\r\n");
+        } else {
+            print("fork failed!\r\n");
+        }
+    }
+    else if (strcmp(cmd, "ps") == 0) {
+        process_info();
+    }
     else if (*cmd) {
         print("Unknown command: ");
         print(cmd);
@@ -261,6 +277,7 @@ void execute_command(const char *cmd) {
 void kernel_main() {
     memory_init();
     interrupt_init();
+    process_init();
     
     disk_init();
     fs_format();

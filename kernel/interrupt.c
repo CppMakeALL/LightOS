@@ -1,4 +1,5 @@
 #include "interrupt.h"
+#include "process.h"
 
 static idt_entry_t idt[IDT_ENTRIES];
 static idt_ptr_t idt_ptr;
@@ -109,7 +110,8 @@ void irq_handler(interrupt_frame_t* frame) {
     unsigned char irq = frame->error_code;
     
     if (irq == 0) {
-        print("\r\nTimer interrupt\r\n");
+        // 时钟中断：触发进程调度
+        schedule();
     } else if (irq == 1) {
         print("\r\nKeyboard interrupt\r\n");
     }
