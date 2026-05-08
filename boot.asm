@@ -15,7 +15,7 @@ start:
 
     ; 读取内核
     mov ah, 0x02 ; 0x02表示去读磁盘
-    mov al, 28 ; 表示读28个磁盘 ,(具体读几个需要根据kernel.c内核代码大小确定)
+    mov al, 29 ; 表示读28个磁盘 ,(具体读几个需要根据kernel.c内核代码大小确定)
     mov ch, 0 ; 柱面号
     mov cl, 2 ; 起始扇区号，1是boot 2是kernel
     mov dh, 0 ; 磁头号
@@ -49,7 +49,7 @@ disk_err:
     mov si, msg_err
     call serial_print
     jmp $
-
+;GDT 里每一条「段描述符」的格式 → 硬件 Intel 强行规定死，一点不能改但 GDT 表里放多少项、顺序怎么排、放什么段 → 完全你自己随便自定义
 gdt_start: ;0x00
     dq 0 ; 8字节全0 = 空描述符
 gdt_code: ;0x08 8字节

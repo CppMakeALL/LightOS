@@ -4,6 +4,7 @@
 #include "disk.h"
 #include "interrupt.h"
 #include "process.h"
+#include "privilege.h"
 
 static inline unsigned char inb(unsigned short port) {
     unsigned char ret;
@@ -278,6 +279,7 @@ void kernel_main() {
     memory_init();
     interrupt_init();
     process_init();
+    privilege_init();
     
     disk_init();
     fs_format();

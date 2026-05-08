@@ -69,12 +69,14 @@ static void remove_from_ready_queue(task_struct_t *task) {
 
 // 初始化TSS
 static void tss_init(void) {
-    // 设置TSS段描述符
-    unsigned int tss_addr = (unsigned int)&tss;
+    // 清空TSS结构
+    for (int i = 0; i < sizeof(tss) / sizeof(unsigned int); i++) {
+        ((unsigned int*)&tss)[i] = 0;
+    }
     
-    // 填充GDT中TSS描述符（需要在boot.asm中添加）
-    // 这里简化处理，直接设置必要字段
-    tss.ss0 = 0x10;  // 内核数据段选择子
+    // 设置内核栈段选择子和栈指针
+    tss.ss0 = KERNEL_DATA_SEL;  // 内核数据段选择子
+    tss.esp0 = 0;               // 内核栈指针（后续由set_kernel_stack设置）
     tss.iomap = 0xFFFF;
 }
 
