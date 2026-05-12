@@ -119,6 +119,9 @@ void irq_handler(interrupt_frame_t* frame) {
     pic_eoi(irq);
 }
 
+// 声明系统调用中断处理函数
+extern void isr128(void);
+
 //整个中断系统的初始化
 void interrupt_init() {
     idt_ptr.limit = (sizeof(idt_entry_t) * IDT_ENTRIES) - 1;
@@ -131,6 +134,10 @@ void interrupt_init() {
     for (int i = 32; i < 48; i++) {
         idt_set_gate(i, (unsigned long)irq_common_stub, 0x08, 0x8E);
     }
+
+    // 注册系统调用中断 int 0x80 (128)
+    // 使用 0xEF = 0b11101111: 存在位=1, DPL=3(用户态可调用), 类型=1110(中断门)
+    idt_set_gate(128, (unsigned long)isr128, 0x08, 0xEF);
 
     __asm__ volatile ("lidt %0" : : "m"(idt_ptr));
     

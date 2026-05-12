@@ -30,15 +30,16 @@ add_custom_target(kernel_c
     COMMAND gcc -m32 -ffreestanding -c ${CMAKE_SOURCE_DIR}/kernel/interrupt.c -o interrupt_c.o -fno-pie
     COMMAND gcc -m32 -ffreestanding -c ${CMAKE_SOURCE_DIR}/kernel/process.c -o process.o -fno-pie
     COMMAND gcc -m32 -ffreestanding -c ${CMAKE_SOURCE_DIR}/kernel/privilege.c -o privilege.o -fno-pie
+    COMMAND gcc -m32 -ffreestanding -c ${CMAKE_SOURCE_DIR}/kernel/syscall.c -o syscall.o -fno-pie
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    BYPRODUCTS kernel.o memory.o disk.o interrupt_c.o process.o privilege.o
+    BYPRODUCTS kernel.o memory.o disk.o interrupt_c.o process.o privilege.o syscall.o
 )
 
 # --------------------------
 # 4. 链接 → kernel.bin
 # --------------------------
 add_custom_target(kernel_bin
-    COMMAND ld -m elf_i386 -N -Ttext 0x1000 --entry _start entry.o kernel.o memory.o disk.o interrupt.o interrupt_c.o process.o privilege.o -o kernel.bin --oformat binary
+    COMMAND ld -m elf_i386 -N -Ttext 0x1000 --entry _start entry.o kernel.o memory.o disk.o interrupt.o interrupt_c.o process.o privilege.o syscall.o -o kernel.bin --oformat binary
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     DEPENDS kernel_entry kernel_c
     BYPRODUCTS kernel.bin

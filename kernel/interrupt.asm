@@ -127,3 +127,36 @@ irq_common_stub:
     popa
     add esp, 8
     iret
+
+; ========== 系统调用中断 int 0x80 ==========
+extern syscall_handler_c
+global syscall_handler_asm
+global isr128
+
+isr128:
+    cli
+    push 0
+    push 128
+    jmp syscall_common_stub
+
+syscall_common_stub:
+    pusha
+    push ds
+    push es
+    push fs
+    push gs
+    mov ax, 0x10 ; 0x10 是内核数据段的段选择子
+    mov ds, ax ; 把 ds/es/fs/gs 全部切到内核段
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    push esp ; 把栈指针作为参数传给 C 函数
+    call syscall_handler_c ; 调用 C 函数
+    pop esp ; 调用完恢复栈指针
+    pop gs
+    pop fs
+    pop es
+    pop ds
+    popa
+    add esp, 8 ; 清理栈上的：中断号 + 错误码
+    iret ; 中断返回,从内核态 → 用户态

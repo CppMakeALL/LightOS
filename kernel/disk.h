@@ -32,6 +32,7 @@ int fs_create(const char* filename);
 int fs_delete(const char* filename);
 int fs_read(const char* filename, unsigned int offset, unsigned char* buffer, unsigned int size);
 int fs_write(const char* filename, unsigned int offset, const unsigned char* buffer, unsigned int size);
+int fs_sync(void);
 int fs_list(void);
 int fs_info(void);
 

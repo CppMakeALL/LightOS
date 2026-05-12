@@ -27,14 +27,15 @@ extern tss_t tss;
 
 static void gdt_set_entry(int index, unsigned int base, unsigned int limit, unsigned char type_attr) {
     gdt_entry_t *entry = &extended_gdt[index];
-    
+
     entry->base_low = base & 0xFFFF;
     entry->base_mid = (base >> 16) & 0xFF;
     entry->base_high = (base >> 24) & 0xFF;
-    
+
     entry->limit_low = limit & 0xFFFF;
-    entry->limit_high = (limit >> 16) & 0x0F;
-    
+    // limit_high: 低4位是limit高4位，高4位是标志位(G=1, D=1, L=0, AVL=0) = 0xC0
+    entry->limit_high = ((limit >> 16) & 0x0F) | 0xC0;
+
     entry->type_attr = type_attr;
 }
 
