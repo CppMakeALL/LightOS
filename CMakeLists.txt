@@ -20,6 +20,19 @@ add_custom_target(kernel_entry
     BYPRODUCTS entry.o interrupt.o
 )
 
+set(src_files
+    kernel/kernel.c
+    kernel/memory.c
+    kernel/disk.c
+    kernel/interrupt.c
+    kernel/process.c
+    kernel/privilege.c
+    kernel/syscall.c
+)
+add_compile_options(-O2 -m32 -ffreestanding -fno-pie) 
+#-m32 生成32位代码 -ffreestanding 独立环境模式,裸机内核无任何依赖 -fno-pie 不生成位置无关代码,内核代码必须运行在固定位置
+add_library(kernel_o OBJECT ${src_files})
+
 # --------------------------
 # 3. 编译 kernel.c → kernel.o
 # --------------------------

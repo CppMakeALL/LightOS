@@ -42,6 +42,8 @@ void pic_init() {
     // 5. 打开所有中断屏蔽位（允许硬件发中断）
     outb(0x21, 0x00);
     outb(0xA1, 0x00);
+    //暂时屏蔽时钟中断，用户态用时钟中断没有对应的中断处理函数
+    outb(0x21, 0x01);
 }
 
 void pic_eoi(unsigned char irq) {

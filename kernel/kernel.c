@@ -516,8 +516,8 @@ void kernel_main() {
     print("Type 'help' for commands.\r\n\r\n");
 
     // 创建用户进程并进入用户态
-    // print("Creating user process and entering user mode...\r\n");
-    // create_user_process();
+    print("Creating user process and entering user mode...\r\n");
+    create_user_process();
 
     // 如果用户进程返回（理论上不会），继续运行shell
     char cmd[128];
