@@ -410,11 +410,10 @@ static void create_user_process(void) {
     task->state = TASK_READY;
     task->priority = 1;
     task->time_slice = TIME_SLICE;
-    task->cr3 = 0;
     task->next = NULL;
     task->prev = NULL;
 
-    // 分配进程栈
+    // 分配进程栈（物理页）
     task->stack = (unsigned int *)malloc(STACK_SIZE);
     if (!task->stack) {
         free(task);
@@ -422,24 +421,66 @@ static void create_user_process(void) {
         return;
     }
 
+    // 创建用户进程独立的页目录
+    // 每个用户进程应该有自己独立的页表，实现进程间地址空间隔离
+    unsigned int user_page_dir = create_page_dir();
+    if (!user_page_dir) {
+        free(task->stack);
+        free(task);
+        print("Failed to create user page directory\r\n");
+        return;
+    }
+    task->cr3 = user_page_dir;
+
+    // 将进程栈映射到用户虚拟地址空间
+    // 用户栈虚拟地址：0xBFFFF000（传统x86用户栈顶附近）
+    // 物理地址就是task->stack分配的物理页
+    unsigned int stack_phys = (unsigned int)task->stack;
+    unsigned int stack_virt = 0xBFFFF000;  // 用户栈虚拟地址
+
+    // 映射用户栈到用户页目录（用户可读写）
+    if (map_page(user_page_dir, stack_virt, stack_phys,
+                 PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER) != 0) {
+        destroy_page_dir(user_page_dir);
+        free(task->stack);
+        free(task);
+        print("Failed to map user stack\r\n");
+        return;
+    }
+
+    // 同时在内核页目录中临时映射用户栈物理页
+    // 这样内核可以在切换页表前访问用户栈来构建iret帧
+    unsigned int kernel_page_dir = get_current_page_dir();
+    if (map_page(kernel_page_dir, stack_virt, stack_phys,
+                 PAGE_PRESENT | PAGE_WRITABLE) != 0) {
+        destroy_page_dir(user_page_dir);
+        free(task->stack);
+        free(task);
+        print("Failed to map user stack in kernel page dir\r\n");
+        return;
+    }
+
     // 计算栈顶（从高地址向低地址增长）
-    unsigned int *stack_top = (unsigned int *)((unsigned int)task->stack + STACK_SIZE);
+    // 使用虚拟地址作为用户态栈指针
+    unsigned int user_stack_top = stack_virt + STACK_SIZE;
+    unsigned int *stack_top = (unsigned int *)user_stack_top;
 
     // 构建中断返回栈帧（iret 需要的数据）
     // iret 会依次弹出：eip, cs, eflags, esp, ss
+    // 注意：这里通过虚拟地址stack_virt访问用户栈，因为内核页目录已映射
 
     // ss: 用户数据段选择子 | RPL=3
     *(--stack_top) = USER_DATA_SEL | 0x03;
-    // user_esp: 用户栈顶（使用进程栈顶部）
-    *(--stack_top) = (unsigned int)task->stack + STACK_SIZE;
+    // user_esp: 用户栈顶（使用虚拟地址）
+    *(--stack_top) = user_stack_top;
     // eflags: 开启中断 (IF=1)
     *(--stack_top) = 0x202;
     // cs: 用户代码段选择子 | RPL=3
     *(--stack_top) = USER_CODE_SEL | 0x03;
-    // eip: 用户进程入口
+    // eip: 用户进程入口（虚拟地址，与内核地址相同因为是恒等映射）
     *(--stack_top) = (unsigned int)user_process_entry;
 
-    // 设置进程栈指针
+    // 设置进程栈指针（使用虚拟地址）
     task->esp = (unsigned int)stack_top;
     task->ebp = task->esp;
 
@@ -456,6 +497,9 @@ static void create_user_process(void) {
     }
 
     print("Created user process (PID: 1)\r\n");
+    print("User page directory: ");
+    print_hex(user_page_dir);
+    print("\r\n");
 
     // 切换到用户进程
     current = task;
@@ -469,6 +513,7 @@ static void create_user_process(void) {
     print("Switching to user mode...\r\n");
 
     // 使用 iret 切换到用户态
+    // 在切换页目录之前完成iret压栈，因为iret使用的是当前栈
     __asm__ volatile (
         "cli\n"
         // 设置用户态数据段
@@ -479,29 +524,47 @@ static void create_user_process(void) {
         "movw %%ax, %%gs\n"
         // 压栈构造 iret 帧
         "pushl %0\n"       // ss
-        "pushl %1\n"       // esp
+        "pushl %1\n"       // esp（用户虚拟地址）
         "pushfl\n"         // eflags
         "popl %%eax\n"
         "orl $0x200, %%eax\n"  // 确保 IF=1
         "pushl %%eax\n"
         "pushl %2\n"       // cs
         "pushl %3\n"       // eip
+        // 在iret之前切换页目录到用户页目录
+        // 这样iret弹出esp时，使用的是用户页目录中的映射
+        "movl %4, %%eax\n"
+        "movl %%eax, %%cr3\n"
         "iret\n"
         :
         : "r"(USER_DATA_SEL | 0x03),
-          "r"((unsigned int)task->stack + STACK_SIZE),
+          "r"(user_stack_top),
           "r"(USER_CODE_SEL | 0x03),
-          "r"((unsigned int)user_process_entry)
+          "r"((unsigned int)user_process_entry),
+          "r"(user_page_dir)
         : "eax", "memory"
     );
 }
 
 void kernel_main() {
+    // 初始化物理内存管理（位图分配器）
     memory_init();
+
+    // 初始化中断描述符表（IDT）和PIC控制器
     interrupt_init();
+
+    // 初始化进程管理系统（创建idle进程等）
     process_init();
+
+    // 初始化特权级（GDT、TSS等）
     privilege_init();
+
+    // 初始化系统调用（int 0x80）
     syscall_init();
+
+    // 初始化分页内存管理
+    // 必须在特权级初始化之后，用户进程创建之前启用分页
+    paging_init();
 
     disk_init();
     fs_format();

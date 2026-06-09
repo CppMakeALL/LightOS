@@ -123,16 +123,25 @@ void irq_handler(interrupt_frame_t* frame) {
 
 // 声明系统调用中断处理函数
 extern void isr128(void);
+// 声明缺页异常处理函数（在interrupt.asm中定义）
+extern void isr14(void);
 
 //整个中断系统的初始化
 void interrupt_init() {
     idt_ptr.limit = (sizeof(idt_entry_t) * IDT_ENTRIES) - 1;
     idt_ptr.base = (unsigned int)&idt;
 
+    // 初始化所有CPU异常中断（0~31）
     for (int i = 0; i < 32; i++) {
         idt_set_gate(i, (unsigned long)isr_common_stub, 0x08, 0x8E);
     }
 
+    // 单独注册缺页异常 ISR 14，使用专门的汇编处理函数
+    // 缺页异常需要读取CR2寄存器获取缺页地址
+    // 使用isr14而不是通用的isr_common_stub
+    idt_set_gate(14, (unsigned long)isr14, 0x08, 0x8E);
+
+    // 初始化硬件中断（IRQ 0~15，映射到中断号32~47）
     for (int i = 32; i < 48; i++) {
         idt_set_gate(i, (unsigned long)irq_common_stub, 0x08, 0x8E);
     }

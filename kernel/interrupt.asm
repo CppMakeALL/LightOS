@@ -3,6 +3,7 @@ bits 32
 ; 这两个函数是在C语言里写的,需要声明extern
 extern isr_handler
 extern irq_handler
+extern page_fault_handler
 
 %macro ISR_NOERRCODE 1
   global isr%1
@@ -44,7 +45,7 @@ ISR_ERRCODE   10
 ISR_ERRCODE   11
 ISR_ERRCODE   12
 ISR_ERRCODE   13
-ISR_ERRCODE   14
+; ISR 14 (Page Fault) 在下面单独定义，需要特殊处理CR2寄存器
 ISR_NOERRCODE 15
 ISR_NOERRCODE 16
 ISR_ERRCODE   17
@@ -126,6 +127,51 @@ irq_common_stub:
     pop ds
     popa
     add esp, 8
+    iret
+
+; ========== 缺页异常处理 ISR 14 ==========
+; 缺页异常（Page Fault）是ISR 14，它会压入错误码
+; 需要特殊处理：读取CR2寄存器获取缺页地址
+extern page_fault_handler
+global isr14
+
+isr14:
+    cli
+    push 14
+    jmp page_fault_stub
+
+page_fault_stub:
+    pusha
+    push ds
+    push es
+    push fs
+    push gs
+    mov ax, 0x10
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    ; 读取CR2寄存器（CPU自动将缺页虚拟地址存入CR2）
+    mov eax, cr2
+    push eax
+
+    ; 获取错误码（在栈上的位置）
+    ; 当前栈结构：gs,fs,es,ds,edi,esi,ebp,esp,ebx,edx,ecx,eax,error_code,irq_num,eip,cs,eflags
+    ; 错误码在 [esp + 52] 的位置（push eax后）
+    mov ebx, [esp + 52]
+    push ebx
+
+    ; 调用C语言处理函数：page_fault_handler(error_code, cr2)
+    call page_fault_handler
+    add esp, 8  ; 清理压入的cr2和error_code参数
+
+    pop gs
+    pop fs
+    pop es
+    pop ds
+    popa
+    add esp, 8  ; 清理错误码和中断号
     iret
 
 ; ========== 系统调用中断 int 0x80 ==========

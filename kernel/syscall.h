@@ -6,6 +6,12 @@
 #define SYSCALL_GETPID      1   // 获取进程ID
 #define SYSCALL_EXIT        2   // 进程退出
 #define SYSCALL_GETCHAR     3   // 从串口读取一个字符
+#define SYSCALL_ALLOC_PAGE  4   // 分配虚拟页面（用于用户态缺页处理）
+#define SYSCALL_FREE_PAGE   5   // 释放虚拟页面
+
+// 页面分配标志
+#define ALLOC_FLAG_WRITE    0x01  // 可写
+#define ALLOC_FLAG_USER     0x02  // 用户态可访问
 
 // 用户态系统调用接口（内联汇编）
 static inline int syscall0(int num) {
@@ -56,6 +62,21 @@ static inline int sys_exit(int code) {
 
 static inline int sys_getchar(void) {
     return syscall0(SYSCALL_GETCHAR);
+}
+
+// 用户态请求分配虚拟页面
+// vaddr: 请求的虚拟地址（按页对齐）
+// flags: ALLOC_FLAG_WRITE | ALLOC_FLAG_USER
+// 返回值：0成功，-1失败
+static inline int sys_alloc_page(unsigned int vaddr, unsigned int flags) {
+    return syscall2(SYSCALL_ALLOC_PAGE, (int)vaddr, (int)flags);
+}
+
+// 用户态请求释放虚拟页面
+// vaddr: 虚拟地址
+// 返回值：0成功，-1失败
+static inline int sys_free_page(unsigned int vaddr) {
+    return syscall1(SYSCALL_FREE_PAGE, (int)vaddr);
 }
 
 // 内核态系统调用处理入口
